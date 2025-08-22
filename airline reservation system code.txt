@@ -1,0 +1,141 @@
+
+
+Step 1: SQL Schema Design
+
+We’ll create 4 main tables → Flights, Customers, Bookings, and Seats.
+
+-- Flights table
+CREATE TABLE Flights (
+    FlightID INT PRIMARY KEY AUTO_INCREMENT,
+    FlightNumber VARCHAR(20) UNIQUE NOT NULL,
+    Source VARCHAR(50) NOT NULL,
+    Destination VARCHAR(50) NOT NULL,
+    DepartureTime DATETIME NOT NULL,
+    ArrivalTime DATETIME NOT NULL,
+    TotalSeats INT NOT NULL
+);
+
+-- Customers table
+CREATE TABLE Customers (
+    CustomerID INT PRIMARY KEY AUTO_INCREMENT,
+    Name VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) UNIQUE,
+    Phone VARCHAR(15)
+);
+
+-- Bookings table
+CREATE TABLE Bookings (
+    BookingID INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerID INT,
+    FlightID INT,
+    SeatNumber VARCHAR(10),
+    BookingDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Status VARCHAR(20) DEFAULT 'CONFIRMED',
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID),
+    FOREIGN KEY (FlightID) REFERENCES Flights(FlightID)
+);
+
+-- Seats table
+CREATE TABLE Seats (
+    SeatID INT PRIMARY KEY AUTO_INCREMENT,
+    FlightID INT,
+    SeatNumber VARCHAR(10),
+    IsBooked BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (FlightID) REFERENCES Flights(FlightID)
+);
+
+
+---
+
+Step 2: Insert Sample data
+
+-- Insert Flights
+INSERT INTO Flights (FlightNumber, Source, Destination, DepartureTime, ArrivalTime, TotalSeats)
+VALUES
+('AI101', 'Delhi', 'Mumbai', '2025-08-25 08:00:00', '2025-08-25 10:30:00', 3),
+('AI202', 'Mumbai', 'Chennai', '2025-08-26 12:00:00', '2025-08-26 15:00:00', 2);
+
+-- Insert Customers
+INSERT INTO Customers (Name, Email, Phone)
+VALUES
+('Rahul Sharma', 'rahul@gmail.com', '9876543210'),
+('Anita Verma', 'anita@gmail.com', '9123456789');
+
+-- Insert Seats for AI101 (3 seats)
+INSERT INTO Seats (FlightID, SeatNumber) VALUES
+(1, '1A'), (1, '1B'), (1, '1C');
+
+-- Insert Seats for AI202 (2 seats)
+INSERT INTO Seats (FlightID, SeatNumber) VALUES
+(2, '1A'), (2, '1B');
+
+-- Make Bookings
+INSERT INTO Bookings (CustomerID, FlightID, SeatNumber, Status)
+VALUES
+(1, 1, '1A', 'CONFIRMED'),
+(2, 1, '1B', 'CONFIRMED');
+
+
+---
+
+Step 3: Queries
+
+✅ Search for flights between two cities:
+
+SELECT FlightNumber, Source, Destination, DepartureTime, ArrivalTime
+FROM Flights
+WHERE Source = 'Delhi' AND Destination = 'Mumbai';
+
+✅ Check available seats for a flight:
+
+SELECT SeatNumber
+FROM Seats
+WHERE FlightID = 1 AND IsBooked = FALSE;
+
+✅ Booking Summary Report:
+
+SELECT f.FlightNumber, c.Name AS CustomerName, b.SeatNumber, b.Status, b.BookingDate
+FROM Bookings b
+JOIN Flights f ON b.FlightID = f.FlightID
+JOIN Customers c ON b.CustomerID = c.CustomerID;
+
+
+---
+
+Step 4: Triggers
+
+⚡ Automatically update Seats when a booking is made:
+
+DELIMITER $$
+
+CREATE TRIGGER after_booking_insert
+AFTER INSERT ON Bookings
+FOR EACH ROW
+BEGIN
+    UPDATE Seats
+    SET IsBooked = TRUE
+    WHERE FlightID = NEW.FlightID AND SeatNumber = NEW.SeatNumber;
+END $$
+
+DELIMITER ;
+
+⚡ Automatically free up seat when booking is cancelled:
+
+DELIMITER $$
+
+CREATE TRIGGER after_booking_cancel
+AFTER UPDATE ON Bookings
+FOR EACH ROW
+BEGIN
+    IF NEW.Status = 'CANCELLED' THEN
+        UPDATE Seats
+        SET IsBooked = FALSE
+        WHERE FlightID = NEW.FlightID AND SeatNumber = NEW.SeatNumber;
+    END IF;
+END $$
+
+DELIMITER ;
+
+
+---
+
